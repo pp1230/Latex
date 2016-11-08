@@ -1,0 +1,263 @@
+\documentclass{article}
+\usepackage{zed-csp}
+\usepackage{CJKutf8}
+\usepackage{setspace}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{layout}  
+\pagestyle{fancy}
+\rhead{page \thepage\ of \pageref{LastPage}}
+\chead{}
+\lhead{\bfseries Formal Specification and Verification Homework}
+
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+\newgeometry{left=3.5cm,right=3.5cm,bottom=2cm,top=2cm}
+\author{16121731 皮怀雨}
+\title{软件工程形式化实践系统设计（五）}
+\begin{document}
+\begin{CJK}{UTF8}{gbsn}
+\maketitle
+\begin{spacing}{1.4}
+\renewcommand{\CJKglue}{\hskip 0.5pt}
+
+\section{介绍}
+这是一个大学中为师生们提供多种有偿服务的网站。它的主要使用对象有教师、学生和其他在校职员。
+他的主要功能有用户管理和缴费服务。其中用户管理包含了各种类型用户的基本操作，注册、登录和信息修改。
+缴费服务主要包含了余额充值、缴费和账单查询。
+
+\section{定义}
+
+定义服务系统中基本的类型：
+\begin{zed}[USER]\end{zed}
+系统的用户类型
+\begin{zed}[STUDENT]\end{zed}	
+学生类型
+\begin{zed}[TEACHER]\end{zed}
+教师类型
+\begin{zed}[ACCOUNT]\end{zed}
+用户拥有的系统账号类型
+\begin{zed}[BALANCE]\end{zed}
+账号中的余额类型
+\begin{zed}[RECORD]\end{zed}
+账号的消费记录类型
+
+\section{用户管理}
+用户管理包含了所有用户的注册、登录和信息修改，下面主要以学生为例，其他角色类似。
+学生和账号的关系：
+\begin{schema}{Student} 
+	stu:\power STUDENT \\
+	acc:\power ACCOUNT \\
+	data: STUDENT \pfun ACCOUNT 
+\where stu = \dom data \end{schema}
+\subsection{学生账号的注册与删除}
+学生注册：
+\begin{schema}{Register} 
+	\Delta Student\\
+	a:ACCOUNT\\
+	s:STUDENT
+\where 
+    s \mapsto a \notin data\\
+	s \in stu \\
+	data'=data \cup \{s \mapsto a\}
+\end{schema}
+
+学生账号删除：
+\begin{schema}{Delete} 
+	\Delta Student\\
+	a:ACCOUNT\\
+	s:STUDENT
+\where 
+	a \in \dom data \\
+	s \in stu \\
+	data'=data \hide \{s \mapsto a\}
+\end{schema}
+
+\subsection{学生登录和注销}
+定义KEY为学生账号的唯一标识
+\begin{zed}[KEY]\end{zed}
+
+\begin{schema}{Login}
+log:	ACCOUNT \pfun KEY 
+\end{schema}
+登录
+\begin{schema}{StudentLogIn}
+\Xi Login\\
+\Delta Student\\
+a:ACCOUNT\\
+s:STUDENT\\
+k:KEY
+\where 
+a = data \ s\\
+k = log  \ a\\
+a \in \dom data \\
+	s \in stu \\
+k \notin \dom log\\
+log' = log \cup \{k \mapsto a\}
+\end{schema}
+注销
+\begin{schema}{StudentLogOut}
+\Xi Login\\
+\Delta Student\\
+a:ACCOUNT\\
+s:STUDENT\\
+k:KEY
+\where 
+a = data \ s\\
+k = log \ k\\
+a \in \dom data \\
+	s \in stu \\
+k \in \dom log\\
+log' = \{k\} \ndres log
+\end{schema}
+
+\subsection{学生账号信息的查询和修改}
+定义INFO为学生账号的基本信息
+\begin{zed}[INFO]\end{zed}
+
+\begin{schema}{StuInfo}
+\Xi Student\\
+info:ACCOUNT \pfun INFO
+\where 
+\dom info \subseteq \dom data
+\end{schema}
+
+查询
+\begin{schema}{Read}
+\Xi StuInfo\\
+a:ACCOUNT\\
+i:INFO\\
+\where 
+a \in \dom info\\
+i = info \ a 
+\end{schema}
+
+修改
+\begin{schema}{Update}
+\Xi StuInfo\\
+a:ACCOUNT\\
+newInfo:INFO\\
+\where
+a \in \dom info\\
+info' = info \oplus \{a \mapsto newInfo\}
+\end{schema}
+
+\section{充值缴费及查询}
+这个模块包含了对指定账号的充值、缴费和查询功能。\\
+定义充值和缴费记录为
+\begin{zed}[RECORD]\end{zed}
+定义查询的结果为
+\begin{zed}REPLY::yes\mid no\end{zed}
+\begin{schema}{Balance}
+rec:\seq RECORD\\
+bal:ACCOUNT \pfun BALANCE\\
+\end{schema}
+
+充值和缴费
+\begin{schema}{addBalance}
+\Delta Balance\\
+a:ACCOUNT\\
+newBalance:BACLANCE\\
+r:RECORD
+\where
+a \in dom\  bal\\
+bal' = bal \oplus \{a \mapsto newbalance\}\\
+rec' = \{r\} \cat rec\\
+\end{schema}
+
+查询余额
+\begin{schema}{checkBalance}
+\Xi Balance
+a:ACCOUNT\\
+result:BALANCE\\
+reply:REPLY
+\where
+(a \in dom\  bal \land result = bal \  a \land reply=yes)\\
+\lor\\
+(a \notin dom\  bal  \land reply=no)\\
+\end{schema}
+
+
+
+
+\section{错误处理}
+首先定义一个错误提示类型
+\begin{zed}
+RESPONSE::=OK \mid notRegister \mid alreadyRegister \mid alreadyLoggedIn  \mid notStudent \mid alreadyLogin \mid balNotEnough
+\end{zed}
+注册错误处理
+\begin{schema}{RegisterError}
+\Xi Student\\
+s:STUDENT\\
+a:ACCOUNT\\
+res:RESPONSE
+\where
+(s \in stu \land  s \mapsto a \notin data \land res = OK)\\
+\lor\\
+(s \notin stu \land res = notStudent)\\
+\lor\\
+(s \in stu \land  s \mapsto a \in data \land res = alreadyRegister)
+
+\end{schema}
+登录错误处理
+\begin{schema}{LoginError}
+\Xi Student\\
+\Xi Login\\
+k:KEY\\
+a:ACCOUNT\\
+s:STUDENT\\
+res:RESPONSE\\
+\where
+( s \mapsto a \notin data \land res = notRegister)\\
+\lor\\
+( s \mapsto a \in data \land k \notin log \ a \land res = OK)\\
+\lor\\
+( s \mapsto a \in data \land k \in log \ a \land res = alreadyLogin)
+
+\end{schema}
+删除学生账号错误处理
+\begin{schema}{DeleteError}
+\Xi Student\\
+\Xi Login\\
+s:STUDENT\\
+a:ACCOUNT\\
+res:RESPONSE\\
+\where
+( s \mapsto a \notin data \land res = notRegister)\\
+\lor\\
+( s \mapsto a \in data  \land res = OK)\\
+
+\end{schema}
+修改学生信息错误处理
+
+\begin{schema}{UpdateError}
+\Xi StuInfo\\
+i:INFO\\
+a:ACCOUNT\\
+res:RESPONSE\\
+\where
+( a \mapsto i \notin info \land res = notRegister)\\
+\lor\\
+( a \mapsto i \in info  \land res = OK)\\
+
+\end{schema}
+
+缴费错误处理
+\begin{schema}{BalanceError}
+\Xi Balance\\
+a!:account\\
+b!:BALANCE\\
+res!:RESPONSE\\
+\where
+(a! \in bal \land b! \geq bal \ a! \land res=OK)\\
+\lor\\
+(a! \in bal \land b! < bal \ a! \land res=balNotEnough)\\
+\lor\\
+(a \notin bal  \land res=notRegister)\\
+\end{schema}
+
+
+\end{spacing}
+\end{CJK}
+\end{document}
